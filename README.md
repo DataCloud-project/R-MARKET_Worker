@@ -1,11 +1,12 @@
-# iexec-worker
+# R-MARKET_Worker
+This component is influenced and developed based on the [iexec-worker](https://github.com/iExecBlockchainComputing/iexec-worker).
 
 ### Overview
 
-The iExec-Worker component is in charge of running computing tasks sent by requesters through the iExec Marketplace.
+This component is in charge of running computing tasks sent by requesters through the Marketplace.
 
 
-### Run an iexec-worker
+### Run an R-MARKET_Worker
 
 
 #### With Gradle
