@@ -19,7 +19,7 @@ repositories {
     mavenCentral()
     jcenter()
     maven {
-        url "https://nexus.iex.ec/repository/maven-public/"
+        url "https://nexus.intra.iex.ec/repository/maven-public/"
     }
     maven {
         url "https://jitpack.io"
