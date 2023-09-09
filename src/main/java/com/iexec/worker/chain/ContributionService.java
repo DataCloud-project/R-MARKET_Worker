@@ -36,161 +36,164 @@ import static com.iexec.common.replicate.ReplicateStatusCause.*;
 @Service
 public class ContributionService {
 
-    private final IexecHubService iexecHubService;
-    private final WorkerpoolAuthorizationService workerpoolAuthorizationService;
-    private final EnclaveAuthorizationService enclaveAuthorizationService;
-    private final CredentialsService credentialsService;
+	private final IexecHubService iexecHubService;
+	private final WorkerpoolAuthorizationService workerpoolAuthorizationService;
+	private final EnclaveAuthorizationService enclaveAuthorizationService;
+	private final CredentialsService credentialsService;
 
-    public ContributionService(IexecHubService iexecHubService,
-                               WorkerpoolAuthorizationService workerpoolAuthorizationService,
-                               EnclaveAuthorizationService enclaveAuthorizationService,
-                               CredentialsService credentialsService) {
-        this.iexecHubService = iexecHubService;
-        this.workerpoolAuthorizationService = workerpoolAuthorizationService;
-        this.enclaveAuthorizationService = enclaveAuthorizationService;
-        this.credentialsService = credentialsService;
-    }
+	public ContributionService(IexecHubService iexecHubService,
+			WorkerpoolAuthorizationService workerpoolAuthorizationService,
+			EnclaveAuthorizationService enclaveAuthorizationService, CredentialsService credentialsService) {
+		this.iexecHubService = iexecHubService;
+		this.workerpoolAuthorizationService = workerpoolAuthorizationService;
+		this.enclaveAuthorizationService = enclaveAuthorizationService;
+		this.credentialsService = credentialsService;
+	}
 
-    public boolean isChainTaskInitialized(String chainTaskId) {
-        return iexecHubService.getTaskDescription(chainTaskId) != null;
-    }
+	public boolean isChainTaskInitialized(String chainTaskId) {
+		return iexecHubService.getTaskDescription(chainTaskId) != null;
+	}
 
-    public Optional<ReplicateStatusCause> getCannotContributeStatusCause(String chainTaskId) {
-        Optional<ChainTask> optionalChainTask = iexecHubService.getChainTask(chainTaskId);
-        if (!optionalChainTask.isPresent()) {
-            return Optional.of(CHAIN_UNREACHABLE);
-        }
+	public Optional<ReplicateStatusCause> getCannotContributeStatusCause(String chainTaskId) {
+		Optional<ChainTask> optionalChainTask = iexecHubService.getChainTask(chainTaskId);
+		if (!optionalChainTask.isPresent()) {
+			return Optional.of(CHAIN_UNREACHABLE);
+		}
 
-        ChainTask chainTask = optionalChainTask.get();
+		ChainTask chainTask = optionalChainTask.get();
 
-        if (!hasEnoughStakeToContribute(chainTask)) {
-            return Optional.of(STAKE_TOO_LOW);
-        }
+		if (!hasEnoughStakeToContribute(chainTask)) {
+			return Optional.of(STAKE_TOO_LOW);
+		}
 
-        if (!isTaskActiveToContribute(chainTask)) {
-            return Optional.of(TASK_NOT_ACTIVE);
-        }
+		if (!isTaskActiveToContribute(chainTask)) {
+			return Optional.of(TASK_NOT_ACTIVE);
+		}
 
-        if (!isBeforeContributionDeadlineToContribute(chainTask)) {
-            return Optional.of(CONTRIBUTION_TIMEOUT);
-        }
+		if (!isBeforeContributionDeadlineToContribute(chainTask)) {
+			return Optional.of(CONTRIBUTION_TIMEOUT);
+		}
 
-        if (!isContributionUnsetToContribute(chainTask)) {
-            return Optional.of(CONTRIBUTION_ALREADY_SET);
-        }
+		if (!isContributionUnsetToContribute(chainTask)) {
+			return Optional.of(CONTRIBUTION_ALREADY_SET);
+		}
 
-        if (!isWorkerpoolAuthorizationPresent(chainTaskId)) {
-            return Optional.of(CONTRIBUTION_AUTHORIZATION_NOT_FOUND);//TODO Rename status to WORKERPOOL_AUTHORIZATION_NOT_FOUND
-        }
+		if (!isWorkerpoolAuthorizationPresent(chainTaskId)) {
+			return Optional.of(CONTRIBUTION_AUTHORIZATION_NOT_FOUND);// TODO Rename status to
+																		// WORKERPOOL_AUTHORIZATION_NOT_FOUND
+		}
 
-        return Optional.empty();
-    }
+		return Optional.empty();
+	}
 
-    private boolean isWorkerpoolAuthorizationPresent(String chainTaskId) {
-        WorkerpoolAuthorization workerpoolAuthorization =
-                workerpoolAuthorizationService.getWorkerpoolAuthorization(chainTaskId);
-        if (workerpoolAuthorization != null) {
-            return true;
-        }
-        log.error("WorkerpoolAuthorization missing [chainTaskId:{}]", chainTaskId);
-        return false;
-    }
+	private boolean isWorkerpoolAuthorizationPresent(String chainTaskId) {
+		WorkerpoolAuthorization workerpoolAuthorization = workerpoolAuthorizationService
+				.getWorkerpoolAuthorization(chainTaskId);
+		if (workerpoolAuthorization != null) {
+			return true;
+		}
+		log.error("WorkerpoolAuthorization missing [chainTaskId:{}]", chainTaskId);
+		return false;
+	}
 
-    private boolean hasEnoughStakeToContribute(ChainTask chainTask) {
-        Optional<ChainAccount> optionalChainAccount = iexecHubService.getChainAccount();
-        Optional<ChainDeal> optionalChainDeal = iexecHubService.getChainDeal(chainTask.getDealid());
-        if (!optionalChainAccount.isPresent() || !optionalChainDeal.isPresent()) {
-            return false;
-        }
-        return optionalChainAccount.get().getDeposit() >= optionalChainDeal.get().getWorkerStake().longValue();
-    }
+	private boolean hasEnoughStakeToContribute(ChainTask chainTask) {
+		Optional<ChainAccount> optionalChainAccount = iexecHubService.getChainAccount();
+		Optional<ChainDeal> optionalChainDeal = iexecHubService.getChainDeal(chainTask.getDealid());
+		log.info("hasEnoughStake? [chainTaskId:{}, optionalChainAccount:{}, optionalChainDeal:{}]", chainTask.getChainTaskId(), optionalChainAccount.isPresent(),
+				optionalChainDeal.isPresent());
+		if (!optionalChainAccount.isPresent() || !optionalChainDeal.isPresent()) {
+			return false;
+		}
+		log.info("hasEnoughStake? [chainTaskId:{}, deposit:{}, workerstake:{}]", chainTask.getChainTaskId(), optionalChainAccount.get().getDeposit() ,
+				optionalChainDeal.get().getWorkerStake().longValue());
+		return optionalChainAccount.get().getDeposit() >= optionalChainDeal.get().getWorkerStake().longValue();
+	}
 
-    private boolean isTaskActiveToContribute(ChainTask chainTask) {
-        return iexecHubService.isChainTaskActive(chainTask.getChainTaskId());
-    }
+	private boolean isTaskActiveToContribute(ChainTask chainTask) {
+		return iexecHubService.isChainTaskActive(chainTask.getChainTaskId());
+	}
 
-    private boolean isBeforeContributionDeadlineToContribute(ChainTask chainTask) {
-        return new Date().getTime() < chainTask.getContributionDeadline();
-    }
+	private boolean isBeforeContributionDeadlineToContribute(ChainTask chainTask) {
+		return new Date().getTime() < chainTask.getContributionDeadline();
+	}
 
-    private boolean isContributionUnsetToContribute(ChainTask chainTask) {
-        Optional<ChainContribution> optionalContribution = iexecHubService.getChainContribution(chainTask.getChainTaskId());
-        if (!optionalContribution.isPresent()) return false;
+	private boolean isContributionUnsetToContribute(ChainTask chainTask) {
+		Optional<ChainContribution> optionalContribution = iexecHubService
+				.getChainContribution(chainTask.getChainTaskId());
+		if (!optionalContribution.isPresent())
+			return false;
 
-        ChainContribution chainContribution = optionalContribution.get();
-        return chainContribution.getStatus().equals(ChainContributionStatus.UNSET);
-    }
+		ChainContribution chainContribution = optionalContribution.get();
+		return chainContribution.getStatus().equals(ChainContributionStatus.UNSET);
+	}
 
-    public boolean isContributionDeadlineReached(String chainTaskId) {
-        Optional<ChainTask> oTask = iexecHubService.getChainTask(chainTaskId);
-        if (!oTask.isPresent()) return true;
+	public boolean isContributionDeadlineReached(String chainTaskId) {
+		Optional<ChainTask> oTask = iexecHubService.getChainTask(chainTaskId);
+		if (!oTask.isPresent())
+			return true;
 
-        return !isBeforeContributionDeadlineToContribute(oTask.get());
-    }
+		return !isBeforeContributionDeadlineToContribute(oTask.get());
+	}
 
-    // returns ChainReceipt of the contribution if successful, null otherwise
-    public Optional<ChainReceipt> contribute(Contribution contribution) {
+	// returns ChainReceipt of the contribution if successful, null otherwise
+	public Optional<ChainReceipt> contribute(Contribution contribution) {
 
-        IexecHubContract.TaskContributeEventResponse contributeResponse = iexecHubService.contribute(contribution);
+		IexecHubContract.TaskContributeEventResponse contributeResponse = iexecHubService.contribute(contribution);
 
-        if (contributeResponse == null) {
-            log.error("ContributeTransactionReceipt received but was null [chainTaskId:{}]", contribution.getChainTaskId());
-            return Optional.empty();
-        }
+		if (contributeResponse == null) {
+			log.error("ContributeTransactionReceipt received but was null [chainTaskId:{}]",
+					contribution.getChainTaskId());
+			return Optional.empty();
+		}
 
-        ChainReceipt chainReceipt = ChainUtils.buildChainReceipt(contributeResponse.log, contribution.getChainTaskId(),
-                iexecHubService.getLatestBlockNumber());
+		ChainReceipt chainReceipt = ChainUtils.buildChainReceipt(contributeResponse.log, contribution.getChainTaskId(),
+				iexecHubService.getLatestBlockNumber());
 
-        return Optional.of(chainReceipt);
-    }
+		return Optional.of(chainReceipt);
+	}
 
-    public boolean putWorkerpoolAuthorization(WorkerpoolAuthorization workerpoolAuthorization) {
-        return workerpoolAuthorizationService.putWorkerpoolAuthorization(workerpoolAuthorization);
-    }
+	public boolean putWorkerpoolAuthorization(WorkerpoolAuthorization workerpoolAuthorization) {
+		return workerpoolAuthorizationService.putWorkerpoolAuthorization(workerpoolAuthorization);
+	}
 
-    public WorkerpoolAuthorization getWorkerpoolAuthorization(String chainTaskId) {
-        return workerpoolAuthorizationService.getWorkerpoolAuthorization(chainTaskId);
-    }
+	public WorkerpoolAuthorization getWorkerpoolAuthorization(String chainTaskId) {
+		return workerpoolAuthorizationService.getWorkerpoolAuthorization(chainTaskId);
+	}
 
-    public Contribution getContribution(ComputedFile computedFile) {
-        String chainTaskId = computedFile.getTaskId();
-        WorkerpoolAuthorization workerpoolAuthorization = workerpoolAuthorizationService.getWorkerpoolAuthorization(chainTaskId);
-        if (workerpoolAuthorization == null) {
-            log.error("Cant getContribution (cant getWorkerpoolAuthorization) [chainTaskId:{}]", chainTaskId);
-            return null;
-        }
+	public Contribution getContribution(ComputedFile computedFile) {
+		String chainTaskId = computedFile.getTaskId();
+		WorkerpoolAuthorization workerpoolAuthorization = workerpoolAuthorizationService
+				.getWorkerpoolAuthorization(chainTaskId);
+		if (workerpoolAuthorization == null) {
+			log.error("Cant getContribution (cant getWorkerpoolAuthorization) [chainTaskId:{}]", chainTaskId);
+			return null;
+		}
 
-        String resultDigest = computedFile.getResultDigest();
-        String resultHash = ResultUtils.computeResultHash(chainTaskId, resultDigest);
-        String resultSeal = ResultUtils.computeResultSeal(credentialsService.getCredentials().getAddress(), chainTaskId, resultDigest);
-        String workerpoolSignature = workerpoolAuthorization.getSignature().getValue();
-        String enclaveChallenge = workerpoolAuthorization.getEnclaveChallenge();
-        String enclaveSignature = computedFile.getEnclaveSignature();
+		String resultDigest = computedFile.getResultDigest();
+		String resultHash = ResultUtils.computeResultHash(chainTaskId, resultDigest);
+		String resultSeal = ResultUtils.computeResultSeal(credentialsService.getCredentials().getAddress(), chainTaskId,
+				resultDigest);
+		String workerpoolSignature = workerpoolAuthorization.getSignature().getValue();
+		String enclaveChallenge = workerpoolAuthorization.getEnclaveChallenge();
+		String enclaveSignature = computedFile.getEnclaveSignature();
 
-        boolean isTeeTask = iexecHubService.isTeeTask(chainTaskId);
-        if (isTeeTask) {
-            if (!enclaveAuthorizationService.isVerifiedEnclaveSignature(chainTaskId,
-                    resultHash, resultSeal, enclaveSignature, enclaveChallenge)) {
-                log.error("Cannot get contribution with invalid enclave " +
-                                "signature [chainTaskId:{}, resultHash:{}, " +
-                                "resultSeal:{}, enclaveSignature:{}, " +
-                                "enclaveChallenge:{}]", chainTaskId, resultHash,
-                        resultSeal, enclaveSignature, enclaveChallenge);
-                return null;
-            }
-        } else {
-            enclaveSignature = BytesUtils.EMPTY_HEXASTRING_64;
-        }
+		boolean isTeeTask = iexecHubService.isTeeTask(chainTaskId);
+		if (isTeeTask) {
+			if (!enclaveAuthorizationService.isVerifiedEnclaveSignature(chainTaskId, resultHash, resultSeal,
+					enclaveSignature, enclaveChallenge)) {
+				log.error(
+						"Cannot get contribution with invalid enclave " + "signature [chainTaskId:{}, resultHash:{}, "
+								+ "resultSeal:{}, enclaveSignature:{}, " + "enclaveChallenge:{}]",
+						chainTaskId, resultHash, resultSeal, enclaveSignature, enclaveChallenge);
+				return null;
+			}
+		} else {
+			enclaveSignature = BytesUtils.EMPTY_HEXASTRING_64;
+		}
 
-        return Contribution.builder()
-                .chainTaskId(chainTaskId)
-                .resultDigest(resultDigest)
-                .resultHash(resultHash)
-                .resultSeal(resultSeal)
-                .enclaveChallenge(enclaveChallenge)
-                .enclaveSignature(enclaveSignature)
-                .workerPoolSignature(workerpoolSignature)
-                .build();
-    }
+		return Contribution.builder().chainTaskId(chainTaskId).resultDigest(resultDigest).resultHash(resultHash)
+				.resultSeal(resultSeal).enclaveChallenge(enclaveChallenge).enclaveSignature(enclaveSignature)
+				.workerPoolSignature(workerpoolSignature).build();
+	}
 
 }
