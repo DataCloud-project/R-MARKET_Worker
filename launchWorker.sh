@@ -35,10 +35,28 @@ else
 fi
 
 # Check if kubelet service is running
-if systemctl is-active --quiet kubelet; then
+if systemctl list-units --full --all | grep -q kubelet.service; then
     echo "kubelet service is running."
 else
     echo "kubelet service is not running."
+    exit 1
+fi
+
+# Check if Java is installed by running the java -version command
+if java -version >/dev/null 2>&1; then
+    # Java is installed, now check the version
+    java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    
+    # Check if the Java version is at least 11
+    if [[ "$java_version" == 1.[1-9]* || "$java_version" == 11.* ]]; then
+        echo "Java 11 or higher is installed. Version: $java_version"
+    else
+        echo "Java version $java_version is installed, but it's not Java 11 or higher." 
+	 exit 1
+    fi
+else
+    # Java is not installed
+    echo "Java is not installed."
     exit 1
 fi
 
