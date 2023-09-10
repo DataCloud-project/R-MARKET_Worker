@@ -62,4 +62,5 @@ fi
 
 echo "All checks passed. Dependencies and services are configured correctly."
 
+set -o allexport && source .env && set +o allexport
 java -Djava.security.egd=file:/dev/./urandom -jar ./R-MARKET_Worker-7.0.0-Datacloud.jar 
