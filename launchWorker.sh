@@ -51,12 +51,12 @@ if java -version >/dev/null 2>&1; then
     if [[ "$java_version" == 1.[1-9]* || "$java_version" == 11.* ]]; then
         echo "Java 11 or higher is installed. Version: $java_version"
     else
-        echo "Java version $java_version is installed, but it's not Java 11 or higher." 
+        echo "Java version $java_version is installed, but it's not Java 11 or higher, you can use 'sudo apt install openjdk-11-jre' command to install java 11." 
 	 exit 1
     fi
 else
     # Java is not installed
-    echo "Java is not installed."
+    echo "Java is not installed, you can use 'sudo apt install openjdk-11-jre' to install java 11."
     exit 1
 fi
 
