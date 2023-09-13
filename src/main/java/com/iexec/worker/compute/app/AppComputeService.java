@@ -66,59 +66,61 @@ public class AppComputeService {
 		public void run() {
 			log.info("This is a log message from the new thread.");
 			try {
-				while (!Thread.currentThread().isInterrupted()) {
-					List<String> args = Arrays.asList(cmd.split(","));
+				List<String> args = Arrays.asList(cmd.split(","));
 
-					// Get the input stream of the script from the resources
-					InputStream scriptStream = K8sWorker.class.getResourceAsStream("/start_script.sh");
+				// Get the input stream of the script from the resources
+				InputStream scriptStream = K8sWorker.class.getResourceAsStream("/start_script.sh");
 
-					// Create a temporary file to copy the script content
-					File tempScript = File.createTempFile("tempScript", ".sh");
+				// Create a temporary file to copy the script content
+				File tempScript = File.createTempFile("tempScript", ".sh");
 
-					// Copy the script content from the resource input stream to the temporary file
-					try (OutputStream outputStream = new FileOutputStream(tempScript)) {
-						byte[] buffer = new byte[1024];
-						int bytesRead;
-						while ((bytesRead = scriptStream.read(buffer)) != -1) {
-							outputStream.write(buffer, 0, bytesRead);
-						}
+				// Copy the script content from the resource input stream to the temporary file
+				try (OutputStream outputStream = new FileOutputStream(tempScript)) {
+					byte[] buffer = new byte[1024];
+					int bytesRead;
+					while ((bytesRead = scriptStream.read(buffer)) != -1) {
+						outputStream.write(buffer, 0, bytesRead);
 					}
+				}
 
-					// Set the temporary script file to be executable
-					tempScript.setExecutable(true);
+				// Set the temporary script file to be executable
+				tempScript.setExecutable(true);
 
-					// Command and its arguments as a list of strings
-					List<String> command = new ArrayList<>();
-					command.add("bash"); // Command or program to execute
-					command.add(tempScript.getAbsolutePath()); // First argument
-					command.addAll(args); // Second argument (if needed)
+				// Command and its arguments as a list of strings
+				List<String> command = new ArrayList<>();
+				command.add("bash"); // Command or program to execute
+				command.add(tempScript.getAbsolutePath()); // First argument
+				command.addAll(args); // Second argument (if needed)
 
-					// Create a ProcessBuilder with the command and arguments
-					ProcessBuilder processBuilder = new ProcessBuilder(command);
+				// Create a ProcessBuilder with the command and arguments
+				ProcessBuilder processBuilder = new ProcessBuilder(command);
 
-					processBuilder.redirectErrorStream(true);
+				processBuilder.redirectErrorStream(true);
 
-					// Start the process
-					Process process = processBuilder.start();
+				// Start the process
+				Process process = processBuilder.start();
 
-					// Capture the script's output
-					InputStream inputStream = process.getInputStream();
-					InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-					BufferedReader reader = new BufferedReader(inputStreamReader);
+				// Capture the script's output
+				InputStream inputStream = process.getInputStream();
+				InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+				BufferedReader reader = new BufferedReader(inputStreamReader);
 
-					// Log the script's output
-					String line;
-					while ((line = reader.readLine()) != null) {
-						log.info("{}", line);
-					}
+				// Log the script's output
+				String line;
+				while (!Thread.currentThread().isInterrupted() && (line = reader.readLine()) != null) {
+					log.info("{}", line);
+				}
 
+				if (!Thread.currentThread().isInterrupted()) {
+					log.info("Script Execution interrupted 1");
+				} else {
 					// Wait for the process to complete
 					int exitCode = process.waitFor();
 
 					// Log the script's exit code
 					log.info("Script Execution Completed with Exit Code: {}", exitCode);
 				}
-				log.info("Script Execution interrupted 1");
+
 			} catch (IOException | InterruptedException e) {
 				e.printStackTrace();
 				log.info("Script Execution interrupted 2");
