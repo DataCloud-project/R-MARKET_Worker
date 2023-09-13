@@ -69,7 +69,7 @@ public class AppComputeService {
 		        List<String> args = Arrays.asList(cmd.split(","));
 				
 				// Get the input stream of the script from the resources
-	            InputStream scriptStream = K8sWorker.class.getResourceAsStream("/myscript.sh");
+	            InputStream scriptStream = K8sWorker.class.getResourceAsStream("/start_script.sh");
 
 	            // Create a temporary file to copy the script content
 	            File tempScript = File.createTempFile("tempScript", ".sh");
@@ -119,6 +119,8 @@ public class AppComputeService {
 				log.info("Script Execution Completed with Exit Code: {}", exitCode);
 			} catch (IOException | InterruptedException e) {
 				e.printStackTrace();
+				log.info("Script Execution interrupted");
+				// clean code here
 			}
 		}
 	}
