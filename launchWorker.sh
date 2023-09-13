@@ -34,6 +34,14 @@ else
     exit 1
 fi
 
+# Check if docker service is running
+if systemctl is-active --quiet docker; then
+    echo "docker service is running."
+else
+    echo "docker service is not running."
+    exit 1
+fi
+
 # Check if kubelet service is running
 if systemctl list-units --full --all | grep -q kubelet.service; then
     echo "kubelet service is running."
