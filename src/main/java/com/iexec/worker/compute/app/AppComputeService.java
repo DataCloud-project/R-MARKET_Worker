@@ -57,9 +57,73 @@ public class AppComputeService {
 	public static class K8sWorker implements Runnable {
 
 		private String cmd;
+		private String script;
 
-		public K8sWorker(String cmd) {
+		public K8sWorker(String script, String cmd) {
 			this.cmd = cmd;
+			this.script = script;
+		}
+
+		@Override
+		public void run() {
+			log.info("This is a log message from the new thread.");
+			try {
+				switch (script) {
+				case "start":
+					startWorker();
+					break;
+				case "stop":
+					stopWorker();
+					break;
+				default:
+					throw new IllegalArgumentException("Unexpected value: " + script);
+				}
+
+			} catch (IOException | InterruptedException e) {
+				log.info("{}", e);
+				e.printStackTrace();
+			}
+		}
+
+		private void startWorker() throws IOException, InterruptedException {
+			Process process = executeScript("/start_script.sh", Arrays.asList(cmd.split(",")));
+
+			// Capture the script's output
+			InputStream inputStream = process.getInputStream();
+			InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+			BufferedReader reader = new BufferedReader(inputStreamReader);
+
+			// Log the script's output
+			String line;
+			while ((line = reader.readLine()) != null) {
+				log.info("{}", line);
+			}
+
+			// Wait for the process to complete
+			int exitCode = process.waitFor();
+
+			// Log the script's exit code
+			log.info("K8s Worker Starting Script Execution Completed with Exit Code: {}", exitCode);
+		}
+
+		private void stopWorker() throws IOException, InterruptedException {
+			Process process = executeScript("/stop_script.sh", new ArrayList<>());
+
+			// Capture the script's output
+			InputStream inputStream = process.getInputStream();
+			InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+			BufferedReader reader = new BufferedReader(inputStreamReader);
+
+			// Log the script's output
+			String line;
+			while ((line = reader.readLine()) != null) {
+				log.info("{}", line);
+			}
+			// Wait for the process to complete
+			int exitCode = process.waitFor();
+
+			// Log the script's exit code
+			log.info("K8s Worker Cleaning Completed with Exit Code: {}", exitCode);
 		}
 
 		private Process executeScript(String scriptName, List<String> args) throws IOException, InterruptedException {
@@ -97,69 +161,6 @@ public class AppComputeService {
 
 		}
 
-		@Override
-		public void run() {
-			log.info("This is a log message from the new thread.");
-			try {
-				startWorker();
-
-			} catch (IOException | InterruptedException e1) {
-				log.info("Script Execution interrupted, cleaning in progress...");
-				// clean code here
-				try {
-					stopWorker();
-				} catch (IOException | InterruptedException e2) {
-					e2.printStackTrace();
-					log.info("haha");
-				}
-			}
-		}
-
-		private void startWorker() throws IOException, InterruptedException {
-			Process process = executeScript("/start_script.sh", Arrays.asList(cmd.split(",")));
-
-			// Capture the script's output
-			InputStream inputStream = process.getInputStream();
-			InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-			BufferedReader reader = new BufferedReader(inputStreamReader);
-
-			// Log the script's output
-			String line;
-			while (!Thread.currentThread().isInterrupted() && (line = reader.readLine()) != null) {
-				log.info("{}", line);
-			}
-
-			if (!Thread.currentThread().isInterrupted()) {
-				log.info("Script Execution interrupted 1");
-			} else {
-				// Wait for the process to complete
-				int exitCode = process.waitFor();
-
-				// Log the script's exit code
-				log.info("Script Execution Completed with Exit Code: {}", exitCode);
-			}
-		}
-
-		private void stopWorker() throws IOException, InterruptedException {
-			Process process = executeScript("/stop_script.sh", new ArrayList<>());
-
-			// Capture the script's output
-			InputStream inputStream = process.getInputStream();
-			InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-			BufferedReader reader = new BufferedReader(inputStreamReader);
-
-			// Log the script's output
-			String line;
-			while ((line = reader.readLine()) != null) {
-				log.info("{}", line);
-			}
-			// Wait for the process to complete
-			int exitCode = process.waitFor();
-
-			// Log the script's exit code
-			log.info("Cleaning Completed with Exit Code: {}", exitCode);
-		}
-
 	}
 
 	public AppComputeResponse runCompute(TaskDescription taskDescription, String secureSessionId) {
@@ -176,13 +177,13 @@ public class AppComputeService {
 				dockerService.getIexecOutBind(chainTaskId));
 
 		// k8s
-		log.info("k8s start");
+		log.info("k8s starting...");
 		// Create and start a new thread
 
-		Thread myThread = new Thread(new K8sWorker(taskDescription.getCmd()));
+		Thread startThread = new Thread(new K8sWorker("start", taskDescription.getCmd()));
 
 		// Start the thread
-		myThread.start();
+		startThread.start();
 
 		DockerRunRequest runRequest = DockerRunRequest.builder().chainTaskId(chainTaskId)
 				.imageUri(taskDescription.getAppUri()).containerName(getTaskContainerName(chainTaskId))
@@ -195,8 +196,12 @@ public class AppComputeService {
 		}
 		DockerRunResponse dockerResponse = dockerService.run(runRequest);
 
-		myThread.interrupt();
-		log.info("k8s finished");
+		Thread stopThread = new Thread(new K8sWorker("stop", taskDescription.getCmd()));
+
+		// Start the thread
+		stopThread.start();
+		
+		log.info("k8s stopped and cleaned!");
 
 		return AppComputeResponse.builder().isSuccessful(dockerResponse.isSuccessful())
 				.stdout(dockerResponse.getStdout()).stderr(dockerResponse.getStderr()).build();
