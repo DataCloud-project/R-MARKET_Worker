@@ -184,10 +184,17 @@ public class AppComputeService {
 
 		// Start the thread
 		startThread.start();
+		
+		String cmd = taskDescription.getCmd();
+		log.info(cmd);
+		cmd = cmd.concat(" ");
+		cmd = cmd.concat(chainTaskId);
+		log.info(chainTaskId);
+		log.info(cmd);
 
 		DockerRunRequest runRequest = DockerRunRequest.builder().chainTaskId(chainTaskId)
 				.imageUri(taskDescription.getAppUri()).containerName(getTaskContainerName(chainTaskId))
-				.cmd(taskDescription.getCmd()).env(env).binds(binds)
+				.cmd(cmd).env(env).binds(binds)
 				.maxExecutionTime(taskDescription.getMaxExecutionTime()).isSgx(taskDescription.isTeeTask())
 				.shouldDisplayLogs(taskDescription.isDeveloperLoggerEnabled()).build();
 		// Enclave should be able to connect to the LAS

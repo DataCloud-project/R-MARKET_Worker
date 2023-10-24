@@ -1,0 +1,44 @@
+version: '3.4'
+
+networks:
+  iexec-worker-net:
+    external: true
+
+
+services:
+
+  worker-sgx:
+    image: ${WORKER_IMAGE}:${WORKER_IMAGE_TAG}
+    container_name: ${WORKER_NAME}
+    environment:
+      - TZ=${TZ}
+      # core
+      - IEXEC_CORE_PROTOCOL=http
+      - IEXEC_CORE_HOST=${CORE_HOSTS}
+      - IEXEC_CORE_PORT=${CORE_PORT}
+      # worker
+      - IEXEC_WORKER_NAME=${WORKER_NAME}
+      #wallet auto-changed on worker startup -> from 100 to 250
+      - IEXEC_WORKER_WALLET_PATH=/wallet.json
+      - IEXEC_WORKER_WALLET_PASSWORD=setim
+      - IEXEC_WORKER_BASE_DIR=/tmp/iexec-worker
+      - IEXEC_WORKER_DOCKER_NETWORK_NAME=iexec-worker-net
+      - IEXEC_WORKER_OVERRIDE_AVAILABLE_CPU_COUNT=${NB_CPU_TO_USE}
+      # tee
+      - IEXEC_DEBUG_FORCE_TEE_DISABLED=true
+      # docker
+      # - IEXEC_WORKER_DOCKER_REGISTRY_ADDRESS_0=docker.io
+      # - IEXEC_WORKER_DOCKER_REGISTRY_USERNAME_0=mock
+      # - IEXEC_WORKER_DOCKER_REGISTRY_PASSWORD_0=${DOCKERHUB_REGISTRY_PASSWORD}
+      # logging
+      - IEXEC_DEVELOPER_LOGGER_ENABLED=true
+      - IEXEC_GAS_PRICE_CAP=${GAS_PRICE_CAP}
+    volumes:
+      - ./wallet_worker1.json:/wallet.json
+      - /tmp/iexec-worker/${WORKER_NAME}:/tmp/iexec-worker/${WORKER_NAME}
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      iexec-worker-net:
+          aliases:
+            - worker

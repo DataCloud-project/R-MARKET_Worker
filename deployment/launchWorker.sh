@@ -70,5 +70,45 @@ fi
 
 echo "All checks passed. Dependencies and services are configured correctly."
 
+
 set -o allexport && source .env && set +o allexport
-java -Djava.security.egd=file:/dev/./urandom -jar ../build/libs/R-MARKET_Worker-7.0.0-Datacloud.jar 
+
+
+# Initialize a flag to determine whether detached mode is specified
+detached_mode=false
+
+# Process command-line options
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --detached|-d)  # Accept both --detached and -d
+            detached_mode=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Define log file
+timestamp=$(date +"%Y%m%d%H%M%S")
+log_file="app_$timestamp.log"
+
+# Run the Java app either in the background or foreground based on --detached
+if [ "$detached_mode" = true ]; then
+    # Use nohup to run the Java app in the background, disassociated from the terminal
+    nohup java -Djava.security.egd=file:/dev/./urandom -jar ../build/libs/R-MARKET_Worker-7.0.0-Datacloud.jar  > "$log_file" 2>&1 &
+    # Capture the PID of the background process
+    java_app_pid=$!
+    
+    echo "Java app is running in the background with PID $java_app_pid"
+    echo "You can stop it by running: kill $java_app_pid"
+    echo "To access logs, run: cat $log_file"
+    echo "To access logs as a stream, run: tail -f $log_file"
+else
+    # Run the Java app in the foreground
+    java -Djava.security.egd=file:/dev/./urandom -jar ../build/libs/R-MARKET_Worker-7.0.0-Datacloud.jar 
+fi
+
+
