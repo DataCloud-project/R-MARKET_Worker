@@ -86,7 +86,8 @@ public class AppComputeService {
 		}
 
 		private void startWorker() throws IOException, InterruptedException {
-			Process process = executeScript("/start_script.sh", Arrays.asList(cmd.split(",")));
+			List<String> cmdList = Arrays.asList(cmd.split(" "));
+			Process process = executeScript("/start_script.sh", cmdList);
 
 			// Capture the script's output
 			InputStream inputStream = process.getInputStream();
@@ -96,7 +97,7 @@ public class AppComputeService {
 			// Log the script's output
 			String line;
 			while ((line = reader.readLine()) != null) {
-				log.info("{}", line);
+				log.info("start script output: {}", line);
 			}
 
 			// Wait for the process to complete
@@ -117,7 +118,7 @@ public class AppComputeService {
 			// Log the script's output
 			String line;
 			while ((line = reader.readLine()) != null) {
-				log.info("{}", line);
+				log.info("stop script output: {}", line);
 			}
 			// Wait for the process to complete
 			int exitCode = process.waitFor();
@@ -180,18 +181,28 @@ public class AppComputeService {
 		log.info("k8s starting...");
 		// Create and start a new thread
 
-		Thread startThread = new Thread(new K8sWorker("start", taskDescription.getCmd()));
+		String cmd = taskDescription.getCmd();
+		
+		// Split the original string by spaces
+        String[] parts = cmd.split(" ");
+
+        // Insert arg4 between arg1 and arg2
+        StringBuilder modifiedString = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            modifiedString.append(parts[i]);
+            if (i == 0) {
+                modifiedString.append(" ").append(chainTaskId).append(" ");
+            } else if (i < parts.length - 1) {
+                modifiedString.append(" ");
+            }
+        }
+        cmd = modifiedString.toString();
+
+        Thread startThread = new Thread(new K8sWorker("start", cmd));
 
 		// Start the thread
 		startThread.start();
 		
-		String cmd = taskDescription.getCmd();
-		log.info(cmd);
-		cmd = cmd.concat(" ");
-		cmd = cmd.concat(chainTaskId);
-		log.info(chainTaskId);
-		log.info(cmd);
-
 		DockerRunRequest runRequest = DockerRunRequest.builder().chainTaskId(chainTaskId)
 				.imageUri(taskDescription.getAppUri()).containerName(getTaskContainerName(chainTaskId))
 				.cmd(cmd).env(env).binds(binds)
